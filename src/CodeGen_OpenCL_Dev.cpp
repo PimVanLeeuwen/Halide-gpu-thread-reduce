@@ -200,6 +200,8 @@ string simt_intrinsic(const string &name) {
         return "get_group_id(2)";
     } else if (ends_with(name, ".__block_id_w")) {
         return "get_group_id(3)";
+    } else if (ends_with(name, ".__gpu_thread_reduce")) {
+        return "get_local_id(0)";
     }
     internal_error << "simt_intrinsic called on bad variable name: " << name << "\n";
     return "";
@@ -212,7 +214,8 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::visit(const For *loop) {
 
     if (is_gpu_var(loop->name)) {
         internal_assert((loop->for_type == ForType::GPUBlock) ||
-                        (loop->for_type == ForType::GPUThread))
+                        (loop->for_type == ForType::GPUThread)||
+                        (loop->for_type == ForType::GPUThreadReduce))
             << "kernel loop must be either gpu block or gpu thread\n";
         internal_assert(is_const_zero(loop->min));
 
@@ -957,16 +960,17 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::add_kernel(Stmt s,
         if (arg.is_buffer &&
             CodeGen_GPU_Dev::is_buffer_constant(s, arg.name) &&
             arg.size > 0) {
-            constants.emplace_back(arg.name, arg.size);
-        }
+                constants.emplace_back(arg.name, arg.size);
+        } 
     }
 
     // Sort the constant candidates from smallest to largest. This will put
     // as many of the constant allocations in __constant as possible.
     // Ideally, we would prioritize constant buffers by how frequently they
     // are accessed.
+    
     sort(constants.begin(), constants.end());
-
+    
     // Compute the cumulative sum of the constants.
     for (size_t i = 1; i < constants.size(); i++) {
         constants[i].size += constants[i - 1].size;
@@ -1046,6 +1050,7 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::add_kernel(Stmt s,
         }
     }
 
+
     class FindShared : public IRVisitor {
         using IRVisitor::visit;
         void visit(const Allocate *op) override {
@@ -1086,7 +1091,10 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::add_kernel(Stmt s,
         }
     }
 
+    debug(2) << "TODO REMOVE checkpoint 1\n";
+
     print(s);
+    debug(2) << "TODO REMOVE checkpoint 2\n";
     close_scope("kernel " + name);
 
     for (const auto &arg : args) {
@@ -1102,6 +1110,7 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::add_kernel(Stmt s,
             stream << "#undef " << get_memory_space(arg.name) << "\n";
         }
     }
+
 }
 
 void CodeGen_OpenCL_Dev::init_module() {
