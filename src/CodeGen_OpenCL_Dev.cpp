@@ -211,11 +211,25 @@ string simt_intrinsic(const string &name) {
 void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::visit(const For *loop) {
     user_assert(loop->for_type != ForType::GPULane)
         << "The OpenCL backend does not support the gpu_lanes() scheduling directive.";
+    
+    
+    // Cover the added GPUThreadReduceLoop
+    if(loop->for_type == ForType::GPUThreadReduce) {
+        // Check if the condition for the gpu_thread_reduce holds, only for addition (right now)
+        user_assert(loop->body.as<Store>()->value.as<Add>())
+            << "GPUThreadReduce is only defined on addition\n";
 
-    if (is_gpu_var(loop->name)) {
+        // stream << get_indent() << print_type(Int(32)) << " " << print_name(loop->name)
+        //        << " = " << simt_intrinsic(loop->name) << ";\n";
+
+        // stream << get_indent() << "HOLLADIEYEE\n"; 
+
+        // stream << "printf("number = %d"," << print_name(loop->name) << ");\n";
+
+        // loop->body.accept(this);
+    } else if (is_gpu_var(loop->name)) {
         internal_assert((loop->for_type == ForType::GPUBlock) ||
-                        (loop->for_type == ForType::GPUThread)||
-                        (loop->for_type == ForType::GPUThreadReduce))
+                        (loop->for_type == ForType::GPUThread))
             << "kernel loop must be either gpu block or gpu thread\n";
         internal_assert(is_const_zero(loop->min));
 
@@ -702,6 +716,7 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::visit(const Store *op) {
                    << id_value << ".s" << vector_elements[i] << ";\n";
         }
     } else {
+        // stream << "HERE ARE WE \n";
         string id_index = print_expr(op->index);
         stream << get_indent();
         std::string array_indexing = print_array_access(op->name, t, id_index);
@@ -1091,10 +1106,7 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::add_kernel(Stmt s,
         }
     }
 
-    debug(2) << "TODO REMOVE checkpoint 1\n";
-
     print(s);
-    debug(2) << "TODO REMOVE checkpoint 2\n";
     close_scope("kernel " + name);
 
     for (const auto &arg : args) {
