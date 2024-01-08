@@ -219,12 +219,28 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::visit(const For *loop) {
         user_assert(loop->body.as<Store>()->value.as<Add>())
             << "GPUThreadReduce is only defined on addition\n";
 
-        // stream << get_indent() << print_type(Int(32)) << " " << print_name(loop->name)
-        //        << " = " << simt_intrinsic(loop->name) << ";\n";
+        stream << get_indent() << print_type(Int(32)) << " " << print_name(loop->name)
+               << " = " << simt_intrinsic(loop->name) << ";\n";
 
-        // stream << get_indent() << "HOLLADIEYEE\n"; 
+        stream << get_indent() << "_sum[" << print_name(loop->name) << "] = _sum[" << print_name(loop->name) << "] + "<< print_name(loop->name) << ";\n";
 
-        // stream << "printf("number = %d"," << print_name(loop->name) << ");\n";
+        stream << get_indent() << "barrier(CLK_LOCAL_MEM_FENCE);\n";
+        
+        stream << get_indent() << "int group_size = get_local_size(0);\n";
+        stream << get_indent() << "int group_size_2 = 1;\n";
+        stream << get_indent() << "while (group_size_2 < group_size) {\n";
+        stream << get_indent() << "  group_size_2 <<= 1;\n";
+        stream << get_indent() << "}\n";
+
+        stream << get_indent() << "for (unsigned int i = group_size_2 / 2; i > 0; i >>= 1) {;\n";
+        stream << get_indent() << "  if (" << print_name(loop->name) << " < i) {\n";
+        stream << get_indent() << "    _sum[" << print_name(loop->name) << "] += _sum[" << print_name(loop->name) << " + i];\n";
+        stream << get_indent() << "  }\n";
+        stream << get_indent() << "  barrier(CLK_LOCAL_MEM_FENCE);\n";
+        stream << get_indent() << "}\n";
+        
+        // stream << get_indent() << "_sum[1] = 1234;\n";
+        // stream << get_indent() << "_sum[0] = group_size;\n";
 
         // loop->body.accept(this);
     } else if (is_gpu_var(loop->name)) {
