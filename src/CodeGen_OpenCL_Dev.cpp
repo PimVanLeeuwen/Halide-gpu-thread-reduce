@@ -211,27 +211,31 @@ string simt_intrinsic(const string &name) {
 void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::visit(const For *loop) {
     user_assert(loop->for_type != ForType::GPULane)
         << "The OpenCL backend does not support the gpu_lanes() scheduling directive.";
-    
-    
+       
     // Cover the added GPUThreadReduceLoop
     if(loop->for_type == ForType::GPUThreadReduce) {
         // Check if the condition for the gpu_thread_reduce holds, only for addition (right now)
         user_assert(loop->body.as<Store>()->value.as<Add>())
             << "GPUThreadReduce is only defined on addition\n";
 
+        // get the local ID of this tread
         stream << get_indent() << print_type(Int(32)) << " " << print_name(loop->name)
                << " = " << simt_intrinsic(loop->name) << ";\n";
 
+        // initialize the repsentive sum value (might already be loaded in case of sum[0])
         stream << get_indent() << "_sum[" << print_name(loop->name) << "] = _sum[" << print_name(loop->name) << "] + "<< print_name(loop->name) << ";\n";
 
+        // Wait for all threads to do this
         stream << get_indent() << "barrier(CLK_LOCAL_MEM_FENCE);\n";
         
+        // take the nearest larger/equal integer that is a power of 2 as loop range
         stream << get_indent() << "int group_size = get_local_size(0);\n";
         stream << get_indent() << "int group_size_2 = 1;\n";
         stream << get_indent() << "while (group_size_2 < group_size) {\n";
         stream << get_indent() << "  group_size_2 <<= 1;\n";
         stream << get_indent() << "}\n";
 
+        // compute the sum based on parallel reduction, wait on each thread after each loop step
         stream << get_indent() << "for (unsigned int i = group_size_2 / 2; i > 0; i >>= 1) {;\n";
         stream << get_indent() << "  if (" << print_name(loop->name) << " < i) {\n";
         stream << get_indent() << "    _sum[" << print_name(loop->name) << "] += _sum[" << print_name(loop->name) << " + i];\n";
@@ -239,10 +243,6 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::visit(const For *loop) {
         stream << get_indent() << "  barrier(CLK_LOCAL_MEM_FENCE);\n";
         stream << get_indent() << "}\n";
         
-        // stream << get_indent() << "_sum[1] = 1234;\n";
-        // stream << get_indent() << "_sum[0] = group_size;\n";
-
-        // loop->body.accept(this);
     } else if (is_gpu_var(loop->name)) {
         internal_assert((loop->for_type == ForType::GPUBlock) ||
                         (loop->for_type == ForType::GPUThread))
