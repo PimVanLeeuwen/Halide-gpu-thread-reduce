@@ -1017,6 +1017,7 @@ FuncSchedule Deserializer::deserialize_func_schedule(const Serialize::FuncSchedu
     const auto memory_type = deserialize_memory_type(func_schedule->memory_type());
     const auto memoized = func_schedule->memoized();
     const auto async = func_schedule->async();
+    const auto ring_buffer = deserialize_expr(func_schedule->ring_buffer_type(), func_schedule->ring_buffer());
     const auto memoize_eviction_key = deserialize_expr(func_schedule->memoize_eviction_key_type(), func_schedule->memoize_eviction_key());
     auto hl_func_schedule = FuncSchedule();
     hl_func_schedule.store_level() = store_level;
@@ -1029,6 +1030,7 @@ FuncSchedule Deserializer::deserialize_func_schedule(const Serialize::FuncSchedu
     hl_func_schedule.memory_type() = memory_type;
     hl_func_schedule.memoized() = memoized;
     hl_func_schedule.async() = async;
+    hl_func_schedule.ring_buffer() = ring_buffer;
     hl_func_schedule.memoize_eviction_key() = memoize_eviction_key;
     return hl_func_schedule;
 }
@@ -1418,9 +1420,10 @@ Pipeline Deserializer::deserialize(const std::vector<uint8_t> &data) {
     }
 
     std::string deserialized_serialization_version = deserialize_string(pipeline_obj->serialization_version());
-    std::string serialization_version = std::to_string(HALIDE_SERIALIZATION_VERSION_MAJOR) + "." +
-                                        std::to_string(HALIDE_SERIALIZATION_VERSION_MINOR) + "." +
-                                        std::to_string(HALIDE_SERIALIZATION_VERSION_PATCH);
+    std::string serialization_version = std::to_string((int)Serialize::SerializationVersionMajor::Value) + "." +
+                                        std::to_string((int)Serialize::SerializationVersionMinor::Value) + "." +
+                                        std::to_string((int)Serialize::SerializationVersionPatch::Value);
+
     if (deserialized_serialization_version != serialization_version) {
         user_error << "deserialized pipeline is built with Halide serialization version " << deserialized_serialization_version
                    << ", but current Halide serialization version is " << serialization_version << "\n";

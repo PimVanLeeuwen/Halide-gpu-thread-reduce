@@ -6,6 +6,16 @@ file_identifier "HLDE";
 // File extension of any written files. "hlpipe" stands for Halide Pipeline.
 file_extension "hlpipe";
 
+enum SerializationVersionMajor: int {
+    Value = 0
+}
+enum SerializationVersionMinor: int {
+    Value = 1
+}
+enum SerializationVersionPatch: int {
+    Value = 0
+}
+
 // from src/IR.cpp
 union Stmt {
     LetStmt,
@@ -511,6 +521,7 @@ table FuncSchedule {
     memory_type: MemoryType = Auto;
     memoized: bool;
     async: bool;
+    ring_buffer: Expr;
     memoize_eviction_key: Expr;
 }
 
