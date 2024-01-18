@@ -223,7 +223,13 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::visit(const For *loop) {
                << " = " << simt_intrinsic(loop->name) << ";\n";
 
         // initialize the repsentive sum value (might already be loaded in case of sum[0])
-        stream << get_indent() << "_sum[" << print_name(loop->name) << "] = _sum[" << print_name(loop->name) << "] + "<< print_name(loop->name) << ";\n";
+        string store_name = print_name(loop->body.as<Store>()->name);
+        stream << get_indent() 
+                << store_name 
+                << "[" << print_name(loop->name) 
+                << "] = " << store_name 
+                << "[" << print_name(loop->name) 
+                << "] + "<< print_name(loop->name) << ";\n";
 
         // Wait for all threads to do this
         stream << get_indent() << "barrier(CLK_LOCAL_MEM_FENCE);\n";
@@ -238,7 +244,7 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::visit(const For *loop) {
         // compute the sum based on parallel reduction, wait on each thread after each loop step
         stream << get_indent() << "for (unsigned int i = group_size_2 / 2; i > 0; i >>= 1) {;\n";
         stream << get_indent() << "  if (" << print_name(loop->name) << " < i) {\n";
-        stream << get_indent() << "    _sum[" << print_name(loop->name) << "] += _sum[" << print_name(loop->name) << " + i];\n";
+        stream << get_indent() << "    " << store_name << "[" << print_name(loop->name) << "] += " << store_name << "[" << print_name(loop->name) << " + i];\n";
         stream << get_indent() << "  }\n";
         stream << get_indent() << "  barrier(CLK_LOCAL_MEM_FENCE);\n";
         stream << get_indent() << "}\n";
