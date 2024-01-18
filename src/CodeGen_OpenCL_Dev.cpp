@@ -227,12 +227,13 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::visit(const For *loop) {
 
         // initialize the repsentive sum value (might already be loaded in case of sum[0])
         string store_name = print_name(loop->body.as<Store>()->name);
+        string b_value = print_expr(loop->body.as<Store>()->value.as<Add>()->b);
         stream << get_indent() 
                 << "local_sum" 
                 << "[" << print_name(loop->name) 
                 << "] = " << store_name 
                 << "[" << print_name(loop->name) 
-                << "] + "<< print_name(loop->name) << ";\n";
+                << "] + "<< b_value << ";\n";
 
         // Wait for all threads to do this
         stream << get_indent() << "barrier(CLK_LOCAL_MEM_FENCE);\n";
