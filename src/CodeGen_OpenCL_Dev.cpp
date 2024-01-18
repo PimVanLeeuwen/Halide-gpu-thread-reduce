@@ -222,10 +222,13 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::visit(const For *loop) {
         stream << get_indent() << print_type(Int(32)) << " " << print_name(loop->name)
                << " = " << simt_intrinsic(loop->name) << ";\n";
 
+        // Local results of the computation
+        stream << "__local int local_sum[1024];\n";
+
         // initialize the repsentive sum value (might already be loaded in case of sum[0])
         string store_name = print_name(loop->body.as<Store>()->name);
         stream << get_indent() 
-                << store_name 
+                << "local_sum" 
                 << "[" << print_name(loop->name) 
                 << "] = " << store_name 
                 << "[" << print_name(loop->name) 
@@ -244,9 +247,14 @@ void CodeGen_OpenCL_Dev::CodeGen_OpenCL_C::visit(const For *loop) {
         // compute the sum based on parallel reduction, wait on each thread after each loop step
         stream << get_indent() << "for (unsigned int i = group_size_2 / 2; i > 0; i >>= 1) {;\n";
         stream << get_indent() << "  if (" << print_name(loop->name) << " < i) {\n";
-        stream << get_indent() << "    " << store_name << "[" << print_name(loop->name) << "] += " << store_name << "[" << print_name(loop->name) << " + i];\n";
+        stream << get_indent() << "    " << "local_sum" << "[" << print_name(loop->name) << "] += " << "local_sum" << "[" << print_name(loop->name) << " + i];\n";
         stream << get_indent() << "  }\n";
         stream << get_indent() << "  barrier(CLK_LOCAL_MEM_FENCE);\n";
+        stream << get_indent() << "}\n";
+
+        // store the value back to global memory if we are the first thread
+        stream << get_indent() << "if (" << print_name(loop->name) << " == 0) {\n";
+        stream << get_indent() << "  " << store_name << "[0] = local_sum[0];\n";
         stream << get_indent() << "}\n";
         
     } else if (is_gpu_var(loop->name)) {
